@@ -1,0 +1,51 @@
+[project]
+name = "olapp-application"
+version = "0.1.0"
+description = "OLAP application"
+readme = "README.md"
+authors = [
+    { name = "Adrian Nathaniel Co", email = "adrian_nathaniel_co@dlsu.edu.ph" },
+    { name = "Justin Kurt Go", email = "justin_kurt_go@dlsu.edu.ph" },
+    { name = "Jenrick Lim", email = "jenrick_lim@dlsu.edu.ph" },
+    { name = "Justin Ryan Uy", email = "justin_ryan_uy@dlsu.edu.ph" },
+]
+license = "MIT"
+license-files = ["LICENSE.md"]
+keywords = ["OLAP"]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.143.1",
+    "loguru>=0.7.3",
+    "pandas>=3.0.6",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+    "ruff>=0.17.0",
+    "seaborn>=0.13.2",
+    "sqlmodel>=0.0.48",
+]
+
+[project.urls]
+Homepage = "https://github.com/imnotneon-dev/olAPP-application#readme"
+Documentation = "https://CoolTrainerEX.github.io/CSNETWK-MP"
+Repository = "https://github.com/imnotneon-dev/olAPP-application.git"
+Issues = "https://github.com/imnotneon-dev/olAPP-application/issues"
+Changelog = "https://github.com/imnotneon-dev/olAPP-application/blob/master/CHANGELOG.md"
+
+[project.scripts]
+olapp-application = "olapp_application:main"
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest>=9.1.1", "sphinx>=9.1.0"]
+
+[tool.ruff.lint]
+select = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.fastapi]
+entrypoint = "olapp-application:app"
