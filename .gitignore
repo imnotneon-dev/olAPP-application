@@ -1,10 +1,40 @@
 # Python-generated files
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
+*.egg
 
 # Virtual environments
-.venv
+.venv/
+venv/
+env/
+ENV/
+
+# Data files & raw datasets
+data/
+*.csv
+*.parquet
+*.gz
+*.zip
+*.dump
+
+dumps/
+backups/
+*.dump
+*.dump.sql
+*_backup.sql
+
+# Environment variables & secrets
+.env
+*.env
+!.env.example
+
+# Docker & local database volume folders
+pgdata/
+*.db
+*.sqlite3
+

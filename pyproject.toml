@@ -17,6 +17,7 @@ dependencies = [
     "fastapi[standard]>=0.143.1",
     "loguru>=0.7.3",
     "pandas>=3.0.6",
+    "psycopg[binary]>=3.2.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
     "ruff>=0.17.0",
@@ -48,4 +49,4 @@ select = ["D"]
 convention = "google"
 
 [tool.fastapi]
-entrypoint = "olapp-application:app"
+entrypoint = "olapp_application:app"
