@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Query
 from sqlmodel import Session, create_engine, text
 
 # 1. Initialize FastAPI App
@@ -37,7 +37,7 @@ def read_root():
 @app.get("/trips")
 def get_sample_trips(limit: int = 10, session: Session = Depends(get_session)):
     query = text("""
-        SELECT 
+        SELECT
             f.trip_id,
             v.vendor_name,
             l.zone_name AS pickup_zone,
@@ -69,3 +69,35 @@ def get_top_pickup_zones(
     """)
     result = session.exec(query, params={"limit": limit}).mappings().all()
     return {"data": result}
+
+@app.get("/rollup")
+def get_rollup(
+    quarter: int = Query(..., ge=1, le=4),
+    session: Session = Depends(get_session),
+):
+    query = text("""
+        SELECT
+            d.month,
+            d.month_name,
+            l.borough AS pickup_borough,
+            ROUND(SUM(f.total_amount)::numeric, 2) AS total_revenue,
+            COUNT(f.trip_id) AS total_trip_volume,
+            ROUND(
+                (
+                    SUM(CASE WHEN f.trip_distance > 0 THEN f.fare_amount ELSE 0 END)
+                    / NULLIF(
+                        SUM(CASE WHEN f.trip_distance > 0 THEN f.trip_distance ELSE 0 END),
+                        0
+                    )
+                )::numeric,
+                2
+            ) AS average_fare_per_mile
+        FROM fact_taxi_trips f
+        JOIN dim_date d ON f.pickup_date_key = d.date_key
+        JOIN dim_location l ON f.pickup_location_id = l.location_id
+        WHERE d.year = 2025 AND d.quarter = :quarter
+        GROUP BY d.month, d.month_name, l.borough
+        ORDER BY d.month, l.borough;
+    """)
+    result = session.exec(query, params={"quarter": quarter}).mappings().all()
+    return {"year": 2025, "quarter": quarter, "data": result}

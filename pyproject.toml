@@ -49,4 +49,4 @@ select = ["D"]
 convention = "google"
 
 [tool.fastapi]
-entrypoint = "olapp_application:app"
+entrypoint = "olapp_application.app:app"
