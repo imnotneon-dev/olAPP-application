@@ -110,7 +110,7 @@ function RollUpWindow() {
       </DropdownMenu>
 
       {quarter == 0 ? (
-        <p>Please select a quarter.</p>
+        <p>Please select a quarter</p>
       ) : error ? (
         <p role="alert">{error}</p>
       ) : (

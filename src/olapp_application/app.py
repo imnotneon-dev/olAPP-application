@@ -101,3 +101,48 @@ def get_rollup(
     """)
     result = session.exec(query, params={"quarter": quarter}).mappings().all()
     return {"year": 2025, "quarter": quarter, "data": result}
+
+@app.get("/drilldown")
+def get_drilldown(
+    month: int = Query(..., ge=1, le=12),
+    borough: str = Query(...),
+    session: Session = Depends(get_session),
+):
+    query = text("""
+        SELECT
+            l.borough AS pickup_borough,
+            l.zone_name AS pickup_neighborhood,
+            d.month,
+            d.day_of_week,
+            d.day_name,
+            t.hour AS pickup_hour,
+            COUNT(*) AS total_trips,
+            AVG(f.passenger_count) AS avg_passenger_count,
+            SUM(f.tip_amount) AS total_tips
+        FROM fact_taxi_trips f
+        JOIN dim_date d
+            ON f.pickup_date_key = d.date_key
+        JOIN dim_time t
+            ON f.pickup_time_key = t.time_key
+        JOIN dim_location l
+            ON f.pickup_location_id = l.location_id
+        WHERE d.year = 2025
+        AND d.month = :month
+        AND l.borough = :borough
+        GROUP BY
+            l.borough,
+            l.zone_name,
+            d.month,
+            d.day_of_week,
+            d.day_name,
+            t.hour
+        ORDER BY
+            l.zone_name,
+            d.day_of_week,
+            t.hour;
+
+    """)
+    result = session.exec(
+        query, params={"month": month, "borough": borough}
+    ).mappings().all()
+    return {"year": 2025, "month": month, "borough": borough, "data": result}
