@@ -39,7 +39,7 @@ LEFT JOIN dim_location l ON f.pickup_location_id = l.location_id
 WHERE l.location_id IS NULL;
 
 -- Test Case TC-OLAP-01: Roll-Up Execution (Quarter 1, 2025)
-\echo '[RUNNING] TC-OLAP-01: Roll-Up Q1 2025 Verification...'
+-- TC-OLAP-01: Roll-Up Q1 2025 Verification
 SELECT 
     d.month,
     d.month_name,
@@ -64,7 +64,7 @@ FROM fact_taxi_trips
 WHERE pickup_date_key BETWEEN 20250101 AND 20250131;
 
 -- Test Case TC-OLAP-02: Roll-Up Parameter Variation (Quarter 4, 2025)
-\echo '[RUNNING] TC-OLAP-02: Roll-Up Q4 2025 Verification...'
+-- TC-OLAP-02: Roll-Up Q4 2025 Verification
 SELECT 
     d.month,
     l.borough AS pickup_borough,
@@ -78,7 +78,7 @@ ORDER BY d.month, l.borough
 LIMIT 5;
 
 -- Test Case TC-OLAP-03: Drill-Down Execution (Month 4, Manhattan)
-\echo '[RUNNING] TC-OLAP-03: Drill-Down Manhattan April 2025 Verification...'
+-- TC-OLAP-03: Drill-Down Manhattan April 2025 Verification
 SELECT 
     l.borough AS pickup_borough,
     l.zone_name AS pickup_neighborhood,
@@ -110,7 +110,7 @@ JOIN dim_location l ON f.pickup_location_id = l.location_id
 WHERE d.year = 2025 AND d.month = 4 AND l.borough = 'NonExistentBorough';
 
 -- Test Case TC-OLAP-05: Slice Execution (Credit Card Payments)
-\echo '[RUNNING] TC-OLAP-05: Slice Credit Card 2025 Verification...'
+-- TC-OLAP-05: Slice Credit Card 2025 Verification
 SELECT 
     d.month,
     d.month_name,
@@ -127,7 +127,7 @@ ORDER BY d.month
 LIMIT 5;
 
 -- Test Case TC-OLAP-06: Slice Parameter Variation (Cash Payments)
-\echo '[RUNNING] TC-OLAP-06: Slice Cash 2025 Verification...'
+-- TC-OLAP-06: Slice Cash 2025 Verification
 SELECT 
     p.payment_name,
     ROUND(SUM(f.tip_amount)::numeric, 2) AS total_cash_tips,
@@ -139,7 +139,7 @@ WHERE d.year = 2025 AND p.payment_name = 'Cash'
 GROUP BY p.payment_name;
 
 -- Test Case TC-OLAP-07: Slice-and-Dice Execution (Queens + Credit Card)
-\echo '[RUNNING] TC-OLAP-07: Slice & Dice Queens + Credit Card Verification...'
+-- TC-OLAP-07: Slice & Dice Queens + Credit Card Verification
 WITH trip_data AS (
     SELECT 
         f.fare_amount,
@@ -171,7 +171,7 @@ ORDER BY CASE distance_tier WHEN 'Short' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END;
 
 
 -- Test Case TC-OLAP-08: Slice-and-Dice Parameter Variation (Bronx + Credit Card)
-\echo '[RUNNING] TC-OLAP-08: Slice & Dice Bronx + Credit Card Verification...'
+-- TC-OLAP-08: Slice & Dice Bronx + Credit Card Verification
 WITH trip_data AS (
     SELECT 
         f.fare_amount,
