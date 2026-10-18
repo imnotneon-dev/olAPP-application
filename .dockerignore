@@ -8,3 +8,14 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Files not needed by the FastAPI image
+.git/
+olap_frontend/
+db/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
