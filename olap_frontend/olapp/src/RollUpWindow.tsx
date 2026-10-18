@@ -31,6 +31,7 @@ type RollupRow = {
 function RollUpWindow() {
   const [quarter, setQuarter] = useState(0);
   const [data, setData] = useState<RollupRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { boroughRevenue, chartConfig } = useMemo(() => {
     const revenueByBorough = new Map<string, number>();
@@ -69,8 +70,10 @@ function RollUpWindow() {
     const controller = new AbortController();
 
     async function load() {
+      setLoading(true);
       try {
         setError("");
+        setData([]);
         const response = await fetch(`/api/rollup?quarter=${quarter}`, {
           signal: controller.signal,
         });
@@ -79,12 +82,15 @@ function RollUpWindow() {
         }
 
         const result: { data: RollupRow[] } = await response.json();
+        if (controller.signal.aborted) return;
         setData(result.data);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(
           err instanceof Error ? err.message : "Could not load roll-up data",
         );
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
@@ -111,6 +117,8 @@ function RollUpWindow() {
 
       {quarter == 0 ? (
         <p>Please select a quarter</p>
+      ) : loading ? (
+        <p role="status">Loading roll-up data...</p>
       ) : error ? (
         <p role="alert">{error}</p>
       ) : (
