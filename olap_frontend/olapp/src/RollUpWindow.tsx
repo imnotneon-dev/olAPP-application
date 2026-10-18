@@ -117,74 +117,78 @@ function RollUpWindow() {
 
       {quarter == 0 ? (
         <p>Please select a quarter</p>
-      ) : loading ? (
-        <p role="status">Loading roll-up data...</p>
-      ) : error ? (
-        <p role="alert">{error}</p>
       ) : (
         <Card className="w-200">
           <CardHeader>
             <CardTitle>Quarter {quarter} — 2025</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {boroughRevenue.length > 0 && (
-              <div>
-                <h3 className="mb-2 font-semibold">
-                  Quarterly Revenue by Borough
-                </h3>
-                <ChartContainer
-                  config={chartConfig}
-                  className="mx-auto aspect-square max-h-72"
-                >
-                  <PieChart>
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          nameKey="chartKey"
-                          formatter={(value) =>
-                            typeof value === "number"
-                              ? `$${value.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}`
-                              : value
+            {loading ? (
+              <p role="status">Loading roll-up data...</p>
+            ) : error ? (
+              <p role="alert">{error}</p>
+            ) : (
+              <>
+                {boroughRevenue.length > 0 && (
+                  <div>
+                    <h3 className="mb-2 font-semibold">
+                      Quarterly Revenue by Borough
+                    </h3>
+                    <ChartContainer
+                      config={chartConfig}
+                      className="mx-auto aspect-square max-h-72"
+                    >
+                      <PieChart>
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              nameKey="chartKey"
+                              formatter={(value) =>
+                                typeof value === "number"
+                                  ? `$${value.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}`
+                                  : value
+                              }
+                            />
                           }
                         />
-                      }
-                    />
-                    <Pie
-                      data={boroughRevenue}
-                      dataKey="revenue"
-                      nameKey="borough"
-                      innerRadius={55}
-                      strokeWidth={2}
-                    />
-                    <ChartLegend
-                      content={<ChartLegendContent nameKey="chartKey" />}
-                    />
-                  </PieChart>
-                </ChartContainer>
-              </div>
+                        <Pie
+                          data={boroughRevenue}
+                          dataKey="revenue"
+                          nameKey="borough"
+                          innerRadius={55}
+                          strokeWidth={2}
+                        />
+                        <ChartLegend
+                          content={<ChartLegendContent nameKey="chartKey" />}
+                        />
+                      </PieChart>
+                    </ChartContainer>
+                  </div>
+                )}
+                {data.map((row) => (
+                  <section
+                    key={`${row.month}-${row.pickup_borough}`}
+                    className="border-b pb-3 last:border-b-0"
+                  >
+                    <h3 className="font-semibold">
+                      {row.month_name} — {row.pickup_borough}
+                    </h3>
+                    <p>Total Revenue: ${row.total_revenue.toFixed(2)}</p>
+                    <p>Total Trip Volume: {row.total_trip_volume}</p>
+                    <p>
+                      Average Fare per Mile:{" "}
+                      {row.average_fare_per_mile === null
+                        ? "N/A"
+                        : `$${row.average_fare_per_mile.toFixed(2)}`}
+                    </p>
+                  </section>
+                ))}
+              </>
             )}
-            {data.map((row) => (
-              <section
-                key={`${row.month}-${row.pickup_borough}`}
-                className="border-b pb-3 last:border-b-0"
-              >
-                <h3 className="font-semibold">
-                  {row.month_name} — {row.pickup_borough}
-                </h3>
-                <p>Total Revenue: ${row.total_revenue.toFixed(2)}</p>
-                <p>Total Trip Volume: {row.total_trip_volume}</p>
-                <p>
-                  Average Fare per Mile:{" "}
-                  {row.average_fare_per_mile === null
-                    ? "N/A"
-                    : `$${row.average_fare_per_mile.toFixed(2)}`}
-                </p>
-              </section>
-            ))}
           </CardContent>
         </Card>
       )}
