@@ -116,7 +116,7 @@ function RollUpWindow() {
       ) : (
         <Card className="w-200">
           <CardHeader>
-            <CardTitle>Quarter {quarter}, 2025</CardTitle>
+            <CardTitle>Quarter {quarter} — 2025</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {boroughRevenue.length > 0 && (

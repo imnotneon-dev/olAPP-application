@@ -146,3 +146,37 @@ def get_drilldown(
         query, params={"month": month, "borough": borough}
     ).mappings().all()
     return {"year": 2025, "month": month, "borough": borough, "data": result}
+
+@app.get("/slice")
+def get_slice(
+    payment_option : str = Query(...),
+    session: Session = Depends(get_session),
+):
+    query = text("""
+        SELECT
+            d.year,
+            d.month,
+            d.month_name,
+            p.payment_name,
+            SUM(f.total_amount) AS total_revenue,
+            AVG(f.fare_amount) AS average_fare,
+            100.0 * SUM(f.tip_amount)
+                / NULLIF(SUM(f.fare_amount), 0)
+                AS average_tip_percentage
+        FROM fact_taxi_trips f
+        JOIN dim_date d
+            ON f.pickup_date_key = d.date_key
+        JOIN dim_payment_type p
+            ON f.payment_type_id = p.payment_type_id
+        WHERE d.year = 2025
+        AND p.payment_name = :payment_option
+        GROUP BY
+            d.year,
+            d.month,
+            d.month_name,
+            p.payment_name
+        ORDER BY
+            d.month;
+    """)
+    result = session.exec(query, params={"payment_option": payment_option}).mappings().all()
+    return {"payment_option": payment_option, "data": result}
