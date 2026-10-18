@@ -3,7 +3,6 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 
-# 1. Database Connection Setup
 DATABASE_URL = os.getenv(
     "OLAPP_DB_CONNECTION",
     "postgresql://postgres:password@localhost:5432/olapp",
@@ -11,9 +10,7 @@ DATABASE_URL = os.getenv(
 engine = create_engine(DATABASE_URL)
 
 
-# ==========================================
-# STEP 1: LOAD DIM_LOCATION
-# ==========================================
+# LOAD DIM_LOCATION
 def load_dim_location(csv_path="data/taxi_zone_lookup.csv"):
     print("Loading dim_location...")
 
@@ -56,10 +53,7 @@ def load_dim_location(csv_path="data/taxi_zone_lookup.csv"):
         )
     print(f"Successfully loaded {len(df)} rows into dim_location.")
 
-
-# ==========================================
-# STEP 2: GENERATE DIM_DATE & DIM_TIME
-# ==========================================
+# GENERATE DIM_DATE & DIM_TIME
 def generate_dim_date(start_year=2024, end_year=2026):
     print("Generating dim_date...")
 
@@ -137,7 +131,6 @@ def generate_dim_time():
         )
     print(f"Successfully loaded {len(df_time)} rows into dim_time.")
 
-
 def load_fact_taxi_trips():
     csv_files = glob.glob("data/green_*.csv")
     if not csv_files and os.path.exists("green_taxi_data.csv"):
@@ -151,14 +144,12 @@ def load_fact_taxi_trips():
         print(f"Processing raw trip file: {file_path}...")
         df = pd.read_csv(file_path, low_memory=False)
 
-        # 1. CLEAN & FILTER DATETIMES
         df["lpep_pickup_datetime"] = pd.to_datetime(df["lpep_pickup_datetime"], format="mixed", errors="coerce")
         df["lpep_dropoff_datetime"] = pd.to_datetime(df["lpep_dropoff_datetime"], format="mixed", errors="coerce")
 
         # Drop invalid timestamps
         df = df.dropna(subset=["lpep_pickup_datetime", "lpep_dropoff_datetime"])
 
-        # Filter out corrupt dates outside 2024–2026 to prevent dim_date FK failures
         df = df[
             (df["lpep_pickup_datetime"].dt.year >= 2024) & (df["lpep_pickup_datetime"].dt.year <= 2026) &
             (df["lpep_dropoff_datetime"].dt.year >= 2024) & (df["lpep_dropoff_datetime"].dt.year <= 2026)
@@ -174,7 +165,6 @@ def load_fact_taxi_trips():
             df["lpep_dropoff_datetime"] - df["lpep_pickup_datetime"]
         ).dt.total_seconds().astype(int)
 
-        # 2. CLEAN NUMERIC COLUMNS (Strip commas)
         measure_cols = [
             "passenger_count", "trip_distance", "fare_amount", "extra",
             "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",
@@ -189,7 +179,6 @@ def load_fact_taxi_trips():
             else:
                 df[col] = 0.0
 
-        # 3. SAFE FOREIGN KEYS (Map unexpected vendor/rate/payment codes to defaults)
         df["vendor_id"] = pd.to_numeric(df["VendorID"], errors="coerce").fillna(1).astype(int)
         df["vendor_id"] = df["vendor_id"].apply(lambda x: x if x in [1, 2] else 1)
 

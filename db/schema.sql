@@ -79,7 +79,11 @@ CREATE TABLE fact_taxi_trips (
     trip_type INT
 );
 
--- FK Indexes to speed up JOIN and GROUP BY OLAP queries
+CREATE INDEX idx_dim_date_year_quarter ON dim_date(year, quarter);
+CREATE INDEX idx_dim_date_year_month ON dim_date(year, month);
+CREATE INDEX idx_dim_location_borough ON dim_location(borough);
+CREATE INDEX idx_dim_payment_name ON dim_payment_type(payment_name);
+
 CREATE INDEX idx_fact_pickup_date ON fact_taxi_trips(pickup_date_key);
 CREATE INDEX idx_fact_dropoff_date ON fact_taxi_trips(dropoff_date_key);
 CREATE INDEX idx_fact_pickup_loc ON fact_taxi_trips(pickup_location_id);
@@ -87,5 +91,8 @@ CREATE INDEX idx_fact_dropoff_loc ON fact_taxi_trips(dropoff_location_id);
 CREATE INDEX idx_fact_vendor ON fact_taxi_trips(vendor_id);
 CREATE INDEX idx_fact_payment_type ON fact_taxi_trips(payment_type_id);
 
--- Composite Index for frequent Slice & Dice operations (Date + Location)
 CREATE INDEX idx_fact_date_location ON fact_taxi_trips(pickup_date_key, pickup_location_id);
+
+CREATE INDEX idx_fact_date_payment ON fact_taxi_trips(pickup_date_key, payment_type_id);
+
+CREATE INDEX idx_fact_date_loc_payment ON fact_taxi_trips(pickup_date_key, pickup_location_id, payment_type_id);

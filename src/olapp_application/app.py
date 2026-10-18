@@ -33,74 +33,48 @@ def read_root():
     }
 
 
-# 4. Sample Analytical Endpoints
-@app.get("/trips")
-def get_sample_trips(limit: int = 10, session: Session = Depends(get_session)):
-    query = text("""
-        SELECT
-            f.trip_id,
-            v.vendor_name,
-            l.zone_name AS pickup_zone,
-            f.trip_distance,
-            f.total_amount
-        FROM fact_taxi_trips f
-        JOIN dim_vendor v ON f.vendor_id = v.vendor_id
-        JOIN dim_location l ON f.pickup_location_id = l.location_id
-        LIMIT :limit;
-    """)
-    result = session.exec(query, params={"limit": limit}).mappings().all()
-    return {"count": len(result), "data": result}
-
-
-@app.get("/analytics/revenue-by-location")
-def get_top_pickup_zones(
-    limit: int = 10, session: Session = Depends(get_session)
-):
-    query = text("""
-        SELECT 
-            l.zone_name AS pickup_zone,
-            COUNT(f.trip_id) AS total_trips,
-            ROUND(SUM(f.total_amount)::numeric, 2) AS total_revenue
-        FROM fact_taxi_trips f
-        JOIN dim_location l ON f.pickup_location_id = l.location_id
-        GROUP BY l.zone
-        ORDER BY total_revenue DESC
-        LIMIT :limit;
-    """)
-    result = session.exec(query, params={"limit": limit}).mappings().all()
-    return {"data": result}
-
 @app.get("/rollup")
 def get_rollup(
     quarter: int = Query(..., ge=1, le=4),
     session: Session = Depends(get_session),
 ):
     query = text("""
+        WITH selected_dates AS (
+            SELECT date_key, month, month_name
+            FROM dim_date
+            WHERE year = 2025
+              AND quarter = :quarter
+        )
         SELECT
             d.month,
             d.month_name,
             l.borough AS pickup_borough,
             ROUND(SUM(f.total_amount)::numeric, 2) AS total_revenue,
-            COUNT(f.trip_id) AS total_trip_volume,
+            COUNT(*) AS total_trip_volume,
             ROUND(
                 (
-                    SUM(CASE WHEN f.trip_distance > 0 THEN f.fare_amount ELSE 0 END)
-                    / NULLIF(
-                        SUM(CASE WHEN f.trip_distance > 0 THEN f.trip_distance ELSE 0 END),
-                        0
-                    )
+                    SUM(f.fare_amount) FILTER (WHERE f.trip_distance > 0)
+                    /
+                    NULLIF(SUM(f.trip_distance) FILTER (WHERE f.trip_distance > 0), 0)
                 )::numeric,
                 2
             ) AS average_fare_per_mile
-        FROM fact_taxi_trips f
-        JOIN dim_date d ON f.pickup_date_key = d.date_key
-        JOIN dim_location l ON f.pickup_location_id = l.location_id
-        WHERE d.year = 2025 AND d.quarter = :quarter
-        GROUP BY d.month, d.month_name, l.borough
-        ORDER BY d.month, l.borough;
+        FROM selected_dates d
+        JOIN fact_taxi_trips f
+            ON f.pickup_date_key = d.date_key
+        JOIN dim_location l
+            ON l.location_id = f.pickup_location_id
+        GROUP BY
+            d.month,
+            d.month_name,
+            l.borough
+        ORDER BY
+            d.month,
+            l.borough;
     """)
     result = session.exec(query, params={"quarter": quarter}).mappings().all()
     return {"year": 2025, "quarter": quarter, "data": result}
+
 
 @app.get("/drilldown")
 def get_drilldown(
@@ -109,6 +83,17 @@ def get_drilldown(
     session: Session = Depends(get_session),
 ):
     query = text("""
+        WITH selected_dates AS (
+            SELECT date_key, month, day_of_week, day_name
+            FROM dim_date
+            WHERE year = 2025
+              AND month = :month
+        ),
+        selected_locations AS (
+            SELECT location_id, borough, zone_name
+            FROM dim_location
+            WHERE borough = :borough
+        )
         SELECT
             l.borough AS pickup_borough,
             l.zone_name AS pickup_neighborhood,
@@ -119,16 +104,13 @@ def get_drilldown(
             COUNT(*) AS total_trips,
             AVG(f.passenger_count) AS avg_passenger_count,
             SUM(f.tip_amount) AS total_tips
-        FROM fact_taxi_trips f
-        JOIN dim_date d
+        FROM selected_dates d
+        JOIN fact_taxi_trips f
             ON f.pickup_date_key = d.date_key
+        JOIN selected_locations l
+            ON l.location_id = f.pickup_location_id
         JOIN dim_time t
-            ON f.pickup_time_key = t.time_key
-        JOIN dim_location l
-            ON f.pickup_location_id = l.location_id
-        WHERE d.year = 2025
-        AND d.month = :month
-        AND l.borough = :borough
+            ON t.time_key = f.pickup_time_key
         GROUP BY
             l.borough,
             l.zone_name,
@@ -140,38 +122,48 @@ def get_drilldown(
             l.zone_name,
             d.day_of_week,
             t.hour;
-
     """)
     result = session.exec(
         query, params={"month": month, "borough": borough}
     ).mappings().all()
     return {"year": 2025, "month": month, "borough": borough, "data": result}
 
+
 @app.get("/slice")
 def get_slice(
-    payment_option : str = Query(...),
+    payment_option: str = Query(...),
     session: Session = Depends(get_session),
 ):
     query = text("""
+        WITH selected_dates AS (
+            SELECT date_key, month, month_name
+            FROM dim_date
+            WHERE year = 2025
+        ),
+        selected_payment AS (
+            SELECT payment_type_id, payment_name
+            FROM dim_payment_type
+            WHERE payment_name = :payment_option
+        )
         SELECT
-            d.year,
             d.month,
             d.month_name,
             p.payment_name,
             SUM(f.total_amount) AS total_revenue,
-            AVG(f.fare_amount) AS average_fare,
-            100.0 * SUM(f.tip_amount)
-                / NULLIF(SUM(f.fare_amount), 0)
-                AS average_tip_percentage
-        FROM fact_taxi_trips f
-        JOIN dim_date d
+            ROUND(AVG(f.fare_amount)::numeric, 2) AS average_fare,
+            ROUND(
+                (
+                    100.0 * SUM(f.tip_amount)
+                    / NULLIF(SUM(f.fare_amount), 0)
+                )::numeric,
+                2
+            ) AS average_tip_percentage
+        FROM selected_dates d
+        JOIN fact_taxi_trips f
             ON f.pickup_date_key = d.date_key
-        JOIN dim_payment_type p
-            ON f.payment_type_id = p.payment_type_id
-        WHERE d.year = 2025
-        AND p.payment_name = :payment_option
+        JOIN selected_payment p
+            ON p.payment_type_id = f.payment_type_id
         GROUP BY
-            d.year,
             d.month,
             d.month_name,
             p.payment_name
@@ -181,41 +173,52 @@ def get_slice(
     result = session.exec(query, params={"payment_option": payment_option}).mappings().all()
     return {"payment_option": payment_option, "data": result}
 
+
 @app.get("/slice_and_dice")
 def get_slice_and_dice(
     pickup_borough: str = Query(...),
     payment_option: str = Query(...),
+    session: Session = Depends(get_session),
 ):
     query = text("""
-        WITH trip_data AS (
+        WITH selected_dates AS (
+            SELECT date_key
+            FROM dim_date
+            WHERE year = 2025
+        ),
+        selected_locations AS (
+            SELECT location_id
+            FROM dim_location
+            WHERE borough = :pickup_borough
+        ),
+        selected_payments AS (
+            SELECT payment_type_id
+            FROM dim_payment_type
+            WHERE payment_name = :payment_option
+        ),
+        filtered_trips AS (
             SELECT
-                f.trip_id,
-                f.fare_amount,
-                f.tip_amount,
-                f.trip_distance,
-                COALESCE(f.extra, 0)
-                    + COALESCE(f.mta_tax, 0)
-                    + COALESCE(f.tolls_amount, 0)
-                    + COALESCE(f.improvement_surcharge, 0)
-                    + COALESCE(f.congestion_surcharge, 0)
-                    + COALESCE(f.cbd_congestion_fee, 0)
-                    AS total_surcharges,
                 CASE
                     WHEN f.trip_distance < 3 THEN 'Short'
                     WHEN f.trip_distance < 10 THEN 'Medium'
                     ELSE 'Long'
-                END AS distance_tier
+                END AS distance_tier,
+                f.fare_amount,
+                f.tip_amount,
+                COALESCE(f.extra, 0)
+                + COALESCE(f.mta_tax, 0)
+                + COALESCE(f.tolls_amount, 0)
+                + COALESCE(f.improvement_surcharge, 0)
+                + COALESCE(f.congestion_surcharge, 0)
+                + COALESCE(f.cbd_congestion_fee, 0) AS total_surcharges
             FROM fact_taxi_trips f
-            JOIN dim_date d
-                ON f.pickup_date_key = d.date_key
-            JOIN dim_location l
-                ON f.pickup_location_id = l.location_id
-            JOIN dim_payment_type p
-                ON f.payment_type_id = p.payment_type_id
-            WHERE d.year = 2025
-            AND l.borough = :pickup_borough
-            AND p.payment_name = :payment_option
-            AND f.trip_distance >= 0
+            JOIN selected_dates d
+                ON d.date_key = f.pickup_date_key
+            JOIN selected_locations l
+                ON l.location_id = f.pickup_location_id
+            JOIN selected_payments p
+                ON p.payment_type_id = f.payment_type_id
+            WHERE f.trip_distance >= 0
         )
         SELECT
             distance_tier,
@@ -225,15 +228,16 @@ def get_slice_and_dice(
                 / NULLIF(SUM(fare_amount), 0)
                 AS tipping_percentage,
             SUM(total_surcharges) AS total_surcharges
-        FROM trip_data
+        FROM filtered_trips
         GROUP BY distance_tier
         ORDER BY
             CASE distance_tier
                 WHEN 'Short' THEN 1
                 WHEN 'Medium' THEN 2
-                WHEN 'Long' THEN 3
+                ELSE 3
             END;
     """)
-    with Session(engine) as session:
-        result = session.exec(query, params={"payment_option": payment_option, "pickup_borough": pickup_borough}).mappings().all()
+    result = session.exec(
+        query, params={"payment_option": payment_option, "pickup_borough": pickup_borough}
+    ).mappings().all()
     return {"payment_option": payment_option, "pickup_borough": pickup_borough, "data": result}
