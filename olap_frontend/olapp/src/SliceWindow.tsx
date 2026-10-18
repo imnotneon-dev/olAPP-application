@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +17,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type SliceRow = {
   year: number;
@@ -38,12 +53,47 @@ const paymentOptions = [
   "Voided trip",
 ];
 
+const revenueChartConfig = {
+  total_revenue: { label: "Revenue", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+const fareChartConfig = {
+  average_fare: { label: "Average fare", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+const tipChartConfig = {
+  average_tip_percentage: {
+    label: "Average tip percentage",
+    color: "var(--chart-3)",
+  },
+} satisfies ChartConfig;
+
 function SliceWindow() {
   const [paymentOption, setPaymentOption] = useState("");
   const [rows, setRows] = useState<SliceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const chartRows = useMemo(
+    () =>
+      rows
+        .map((row) => ({
+          ...row,
+          month_label: new Date(2025, row.month - 1, 1).toLocaleString(
+            "en-US",
+            { month: "short" },
+          ),
+          total_revenue: Number(row.total_revenue),
+          average_fare:
+            row.average_fare === null ? null : Number(row.average_fare),
+          average_tip_percentage:
+            row.average_tip_percentage === null
+              ? null
+              : Number(row.average_tip_percentage),
+        }))
+        .sort((a, b) => a.month - b.month),
+    [rows],
+  );
 
   useEffect(() => {
     if (!paymentOption) return;
@@ -133,11 +183,11 @@ function SliceWindow() {
         </DropdownMenuContent>
       </DropdownMenu>
       {paymentOption ? (
-        <Card className="w-full max-w-4xl">
+        <Card className="w-full max-w-7xl">
           <CardHeader>
             <CardTitle>{paymentOption} — Monthly Summary, 2025</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="gap-6">
             {loading ? (
               <p role="status">Loading monthly payment data...</p>
             ) : error ? (
@@ -145,34 +195,192 @@ function SliceWindow() {
             ) : rows.length === 0 ? (
               <p>No trips found for this payment method in 2025.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Month</TableHead>
-                    <TableHead className="text-right">Total Revenue</TableHead>
-                    <TableHead className="text-right">Average Fare</TableHead>
-                    <TableHead className="text-right">
-                      Average Tip Percentage
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.month}>
-                      <TableCell>{row.month_name}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(row.total_revenue)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(row.average_fare)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatPercentage(row.average_tip_percentage)}
-                      </TableCell>
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Monthly Revenue</h3>
+                    <ChartContainer
+                      config={revenueChartConfig}
+                      className="h-72 w-full"
+                    >
+                      <BarChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="month_label"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          interval={0}
+                          height={28}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={72}
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value: number) =>
+                            `$${Intl.NumberFormat("en", {
+                              notation: "compact",
+                              maximumFractionDigits: 1,
+                            }).format(value)}`
+                          }
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatCurrency(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Bar
+                          dataKey="total_revenue"
+                          fill="var(--color-total_revenue)"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </section>
+
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Monthly Average Fare</h3>
+                    <ChartContainer
+                      config={fareChartConfig}
+                      className="h-72 w-full"
+                    >
+                      <LineChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="month_label"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          interval={0}
+                          height={28}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={65}
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value: number) => `$${value}`}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatCurrency(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Line
+                          dataKey="average_fare"
+                          type="monotone"
+                          stroke="var(--color-average_fare)"
+                          strokeWidth={2}
+                          dot
+                          connectNulls={false}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </section>
+
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Monthly Average Tip %</h3>
+                    <ChartContainer
+                      config={tipChartConfig}
+                      className="h-72 w-full"
+                    >
+                      <LineChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="month_label"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          interval={0}
+                          height={28}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={55}
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value: number) => `${value}%`}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatPercentage(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Line
+                          dataKey="average_tip_percentage"
+                          type="monotone"
+                          stroke="var(--color-average_tip_percentage)"
+                          strokeWidth={2}
+                          dot
+                          connectNulls={false}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </section>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month</TableHead>
+                      <TableHead className="text-right">
+                        Total Revenue
+                      </TableHead>
+                      <TableHead className="text-right">Average Fare</TableHead>
+                      <TableHead className="text-right">
+                        Average Tip Percentage
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {chartRows.map((row) => (
+                      <TableRow key={row.month}>
+                        <TableCell>{row.month_name}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(row.total_revenue)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(row.average_fare)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatPercentage(row.average_tip_percentage)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
             )}
           </CardContent>
         </Card>
