@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Combobox,
@@ -18,6 +18,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const boroughs = [
   "Bronx",
@@ -46,6 +61,25 @@ type SliceAndDiceRow = {
   tipping_percentage: number | string | null;
   total_surcharges: number | string | null;
 };
+
+const tripsChartConfig = {
+  total_trips: { label: "Total trips", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+const fareChartConfig = {
+  average_fare: { label: "Average fare", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+const tippingChartConfig = {
+  tipping_percentage: {
+    label: "Tipping percentage",
+    color: "var(--chart-3)",
+  },
+} satisfies ChartConfig;
+
+const surchargesChartConfig = {
+  total_surcharges: { label: "Total surcharges", color: "var(--chart-4)" },
+} satisfies ChartConfig;
 
 function formatNumber(value: number | string | null): number | null {
   if (value === null) return null;
@@ -76,6 +110,22 @@ function SliceAndDiceWindow() {
   const [rows, setRows] = useState<SliceAndDiceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const chartRows = useMemo(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        average_fare:
+          row.average_fare === null ? null : Number(row.average_fare),
+        tipping_percentage:
+          row.tipping_percentage === null
+            ? null
+            : Number(row.tipping_percentage),
+        total_surcharges:
+          row.total_surcharges === null ? null : Number(row.total_surcharges),
+      })),
+    [rows],
+  );
 
   useEffect(() => {
     if (!borough || !paymentOption) return;
@@ -115,7 +165,7 @@ function SliceAndDiceWindow() {
 
     void loadSummary();
     return () => controller.abort();
-  }, [borough, paymentOption]);
+  }, [borough, paymentOption, reloadKey]);
 
   return (
     <div className="flex flex-col gap-4 items-center">
@@ -124,10 +174,17 @@ function SliceAndDiceWindow() {
           items={boroughs}
           value={borough || null}
           onValueChange={(value) => {
-            setBorough(value ?? "");
+            const nextBorough = value ?? "";
             setRows([]);
             setError("");
-            setLoading(Boolean(value && paymentOption));
+            setLoading(Boolean(nextBorough && paymentOption));
+            if (nextBorough === borough) {
+              if (nextBorough && paymentOption) {
+                setReloadKey((key) => key + 1);
+              }
+            } else {
+              setBorough(nextBorough);
+            }
           }}
         >
           <ComboboxInput placeholder="Select Pickup Borough" />
@@ -147,10 +204,17 @@ function SliceAndDiceWindow() {
           items={paymentOptions}
           value={paymentOption || null}
           onValueChange={(value) => {
-            setPaymentOption(value ?? "");
+            const nextPaymentOption = value ?? "";
             setRows([]);
             setError("");
-            setLoading(Boolean(value && borough));
+            setLoading(Boolean(nextPaymentOption && borough));
+            if (nextPaymentOption === paymentOption) {
+              if (nextPaymentOption && borough) {
+                setReloadKey((key) => key + 1);
+              }
+            } else {
+              setPaymentOption(nextPaymentOption);
+            }
           }}
         >
           <ComboboxInput placeholder="Select Payment Option" />
@@ -167,7 +231,7 @@ function SliceAndDiceWindow() {
         </Combobox>
       </div>
       {borough && paymentOption ? (
-        <Card className="w-full max-w-5xl">
+        <Card className="w-full max-w-6xl">
           <CardHeader>
             <CardTitle>
               {borough} — {paymentOption} — 2025
@@ -186,6 +250,186 @@ function SliceAndDiceWindow() {
                   Short: under 3 mi; Medium: 3 to under 10 mi; Long: 10 mi or
                   more.
                 </p>
+                <div className="mb-6 grid gap-4 md:grid-cols-2">
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Total Trips</h3>
+                    <ChartContainer
+                      config={tripsChartConfig}
+                      className="h-64 w-full"
+                    >
+                      <BarChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="distance_tier"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={65}
+                          tickFormatter={(value: number) =>
+                            Number(value).toLocaleString()
+                          }
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent />}
+                        />
+                        <Bar
+                          dataKey="total_trips"
+                          fill="var(--color-total_trips)"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </section>
+
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Average Fare</h3>
+                    <ChartContainer
+                      config={fareChartConfig}
+                      className="h-64 w-full"
+                    >
+                      <LineChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="distance_tier"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={65}
+                          tickFormatter={(value: number) => `$${value}`}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatCurrency(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Line
+                          dataKey="average_fare"
+                          type="monotone"
+                          stroke="var(--color-average_fare)"
+                          strokeWidth={2}
+                          dot
+                          connectNulls={false}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </section>
+
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Tipping Percentage</h3>
+                    <ChartContainer
+                      config={tippingChartConfig}
+                      className="h-64 w-full"
+                    >
+                      <LineChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="distance_tier"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={55}
+                          tickFormatter={(value: number) => `${value}%`}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatPercentage(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Line
+                          dataKey="tipping_percentage"
+                          type="monotone"
+                          stroke="var(--color-tipping_percentage)"
+                          strokeWidth={2}
+                          dot
+                          connectNulls={false}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </section>
+
+                  <section className="min-w-0 rounded-lg border p-4">
+                    <h3 className="mb-3 font-medium">Total Surcharges</h3>
+                    <ChartContainer
+                      config={surchargesChartConfig}
+                      className="h-64 w-full"
+                    >
+                      <BarChart
+                        accessibilityLayer
+                        data={chartRows}
+                        margin={{ top: 12, right: 12, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="distance_tier"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={75}
+                          tickFormatter={(value: number) =>
+                            `$${Intl.NumberFormat("en", {
+                              notation: "compact",
+                              maximumFractionDigits: 1,
+                            }).format(value)}`
+                          }
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value) =>
+                                formatCurrency(Number(value))
+                              }
+                            />
+                          }
+                        />
+                        <Bar
+                          dataKey="total_surcharges"
+                          fill="var(--color-total_surcharges)"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </section>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -201,7 +445,7 @@ function SliceAndDiceWindow() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((row) => (
+                    {chartRows.map((row) => (
                       <TableRow key={row.distance_tier}>
                         <TableCell>{row.distance_tier}</TableCell>
                         <TableCell className="text-right">
