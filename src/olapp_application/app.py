@@ -180,3 +180,60 @@ def get_slice(
     """)
     result = session.exec(query, params={"payment_option": payment_option}).mappings().all()
     return {"payment_option": payment_option, "data": result}
+
+@app.get("/slice_and_dice")
+def get_slice_and_dice(
+    pickup_borough: str = Query(...),
+    payment_option: str = Query(...),
+):
+    query = text("""
+        WITH trip_data AS (
+            SELECT
+                f.trip_id,
+                f.fare_amount,
+                f.tip_amount,
+                f.trip_distance,
+                COALESCE(f.extra, 0)
+                    + COALESCE(f.mta_tax, 0)
+                    + COALESCE(f.tolls_amount, 0)
+                    + COALESCE(f.improvement_surcharge, 0)
+                    + COALESCE(f.congestion_surcharge, 0)
+                    + COALESCE(f.cbd_congestion_fee, 0)
+                    AS total_surcharges,
+                CASE
+                    WHEN f.trip_distance < 3 THEN 'Short'
+                    WHEN f.trip_distance < 10 THEN 'Medium'
+                    ELSE 'Long'
+                END AS distance_tier
+            FROM fact_taxi_trips f
+            JOIN dim_date d
+                ON f.pickup_date_key = d.date_key
+            JOIN dim_location l
+                ON f.pickup_location_id = l.location_id
+            JOIN dim_payment_type p
+                ON f.payment_type_id = p.payment_type_id
+            WHERE d.year = 2025
+            AND l.borough = :pickup_borough
+            AND p.payment_name = :payment_option
+            AND f.trip_distance >= 0
+        )
+        SELECT
+            distance_tier,
+            COUNT(*) AS total_trips,
+            AVG(fare_amount) AS average_fare,
+            100.0 * SUM(tip_amount)
+                / NULLIF(SUM(fare_amount), 0)
+                AS tipping_percentage,
+            SUM(total_surcharges) AS total_surcharges
+        FROM trip_data
+        GROUP BY distance_tier
+        ORDER BY
+            CASE distance_tier
+                WHEN 'Short' THEN 1
+                WHEN 'Medium' THEN 2
+                WHEN 'Long' THEN 3
+            END;
+    """)
+    with Session(engine) as session:
+        result = session.exec(query, params={"payment_option": payment_option, "pickup_borough": pickup_borough}).mappings().all()
+    return {"payment_option": payment_option, "pickup_borough": pickup_borough, "data": result}

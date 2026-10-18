@@ -115,7 +115,7 @@ function DrilLDownWindow() {
             setLoading(Boolean(value && borough));
           }}
         >
-          <ComboboxInput placeholder="Select month" />
+          <ComboboxInput placeholder="Select Month" />
           <ComboboxContent>
             <ComboboxEmpty>No items found.</ComboboxEmpty>
             <ComboboxList>
@@ -137,7 +137,7 @@ function DrilLDownWindow() {
             setLoading(Boolean(value && month));
           }}
         >
-          <ComboboxInput placeholder="Select borough" />
+          <ComboboxInput placeholder="Select Borough" />
           <ComboboxContent>
             <ComboboxEmpty>No items found.</ComboboxEmpty>
             <ComboboxList>
