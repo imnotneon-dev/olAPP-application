@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { Pie, PieChart } from "recharts";
 
 type RollupRow = {
   month: number;
@@ -23,6 +32,36 @@ function RollUpWindow() {
   const [quarter, setQuarter] = useState(0);
   const [data, setData] = useState<RollupRow[]>([]);
   const [error, setError] = useState("");
+  const { boroughRevenue, chartConfig } = useMemo(() => {
+    const revenueByBorough = new Map<string, number>();
+    for (const row of data) {
+      revenueByBorough.set(
+        row.pickup_borough,
+        (revenueByBorough.get(row.pickup_borough) ?? 0) + row.total_revenue,
+      );
+    }
+
+    const boroughRevenue = [...revenueByBorough.entries()]
+      .sort(([boroughA], [boroughB]) => boroughA.localeCompare(boroughB))
+      .map(([borough, revenue], index) => ({
+        borough,
+        revenue,
+        chartKey: `borough${index + 1}`,
+        fill: `var(--color-borough${index + 1})`,
+      }));
+
+    const chartConfig: ChartConfig = Object.fromEntries(
+      boroughRevenue.map((item, index) => [
+        item.chartKey,
+        {
+          label: item.borough,
+          color: `var(--chart-${(index % 5) + 1})`,
+        },
+      ]),
+    );
+
+    return { boroughRevenue, chartConfig };
+  }, [data]);
 
   useEffect(() => {
     if (quarter === 0) return;
@@ -54,7 +93,7 @@ function RollUpWindow() {
   }, [quarter]);
 
   return (
-    <>
+    <div className="flex flex-col gap-4 items-center">
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" />}>
           Select Quarter
@@ -75,11 +114,51 @@ function RollUpWindow() {
       ) : error ? (
         <p role="alert">{error}</p>
       ) : (
-        <Card className="w-full max-w-3xl">
+        <Card className="w-200">
           <CardHeader>
             <CardTitle>Quarter {quarter}, 2025</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {boroughRevenue.length > 0 && (
+              <div>
+                <h3 className="mb-2 font-semibold">
+                  Quarterly Revenue by Borough
+                </h3>
+                <ChartContainer
+                  config={chartConfig}
+                  className="mx-auto aspect-square max-h-72"
+                >
+                  <PieChart>
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          nameKey="chartKey"
+                          formatter={(value) =>
+                            typeof value === "number"
+                              ? `$${value.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}`
+                              : value
+                          }
+                        />
+                      }
+                    />
+                    <Pie
+                      data={boroughRevenue}
+                      dataKey="revenue"
+                      nameKey="borough"
+                      innerRadius={55}
+                      strokeWidth={2}
+                    />
+                    <ChartLegend
+                      content={<ChartLegendContent nameKey="chartKey" />}
+                    />
+                  </PieChart>
+                </ChartContainer>
+              </div>
+            )}
             {data.map((row) => (
               <section
                 key={`${row.month}-${row.pickup_borough}`}
@@ -101,7 +180,7 @@ function RollUpWindow() {
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   );
 }
 
